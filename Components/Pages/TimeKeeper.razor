@@ -1,0 +1,179 @@
+@page "/"
+
+<MudGrid>
+    <MudItem xs="12" sm="4" md="4">
+        <MudCard class="ma-4">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo=" Typo.h4">Date</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudDatePicker PickerVariant="PickerVariant.Static" Date="@RecordDate" />
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="3" sm="4" md="4">
+        <MudCard class="ma-4">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo=" Typo.h4">Start</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudTimePicker Label="Start" @bind-Time="StartTime" PickerVariant="PickerVariant.Static"
+                    Color="Color.Tertiary" MinuteSelectionStep="15" AmPm="false" TimeFormat="hh:mm" />
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="3" sm="4" md="4">
+        <MudCard class="ma-4">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo=" Typo.h4">End</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudTimePicker Label="End" @bind-Time="EndTime" PickerVariant="PickerVariant.Static"
+                    Color="Color.Secondary" MinuteSelectionStep="15" AmPm="false" TimeFormat="hh:mm" />
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudFlexBreak />
+    <MudItem xs="3" sm="4" md="4">
+        <MudCard class="mx-4 mb-4">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo=" Typo.h4">Breaks</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudTimePicker Label="Breaks" @bind-Time="LunchTime" PickerVariant="PickerVariant.Static"
+                    Color="Color.Info" MinuteSelectionStep="15" AmPm="false" TimeFormat="hh:mm" />
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="4" md="4">
+        <MudCard class="mx-4 align-center">
+            <MudCardContent>
+                <MudText Align="Align.Center" Typo="Typo.h5" class="">Total: @workhours h</MudText>
+                <MudTextField AutoGrow T="string" Typo="Typo.h6" class="d-flex w-full" @bind-Value="Note" Label="Notes"
+                    HelperText="What have you worked on?" Variant="Variant.Outlined">
+                </MudTextField>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Size="Size.Large" class="p-2 mb-4" Color="Color.Success"
+                    StartIcon="@Icons.Material.Filled.Save" Variant="Variant.Filled" OnClick="AddIntoTable"
+                    Disabled="EvaluateDisableSave()">Save
+                </MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    @using TimeKeeperApp.Services
+    @using TimeKeeperApp.Models
+    @inject TimeKeeperService TimeKeeperService
+    private double workhours = 0;
+
+    private TimeSpan? _startTime = new TimeSpan(08, 00, 00);
+
+    private TimeSpan? _lunchTime = new TimeSpan(01, 00, 00);
+
+    private TimeSpan? _endTime = new TimeSpan(18, 00, 00);
+
+    private string Note = "";
+
+    private DateTime RecordDate { get; set; } = DateTime.Today;
+
+
+
+    private TimeSpan? StartTime
+    {
+        get => _startTime;
+        set
+        {
+            _startTime = value;
+            CalculateElapsedTime();
+        }
+    }
+
+    private TimeSpan? LunchTime
+    {
+        get => _lunchTime;
+        set
+        {
+            _lunchTime = value;
+            CalculateElapsedTime();
+        }
+    }
+
+    private TimeSpan? EndTime
+    {
+        get => _endTime;
+        set
+        {
+            _endTime = value;
+            CalculateElapsedTime();
+        }
+    }
+
+    private DateTime? StartTimeDate
+    {
+        get => RecordDate.Add(StartTime ?? new TimeSpan(0, 0, 0));
+        set
+        {
+            _startTime = value - RecordDate;
+        }
+    }
+
+    private DateTime? EndTimeDate
+    {
+        get => RecordDate.Add(EndTime ?? new TimeSpan(0, 0, 0));
+        set
+        {
+            EndTime = value - RecordDate;
+        }
+    }
+    protected override void OnInitialized()
+    {
+        CalculateElapsedTime();
+    }
+
+
+    private void CalculateElapsedTime()
+    {
+        if (EndTime < StartTime)
+        {
+            return;
+        }
+
+        TimeSpan? elapsed = (EndTime - StartTime) - LunchTime;
+        workhours = elapsed?.TotalHours ?? 0;
+    }
+
+    private async void AddIntoTable()
+    {
+        var entry = new TimeRecord()
+            {
+                Id = Guid.NewGuid(),
+                CreatedAt = DateTime.UtcNow,
+                RecordDate = RecordDate,
+                StartTime = StartTimeDate ?? RecordDate,
+                BreakTime = LunchTime?.TotalHours ?? 0,
+                EndTime = EndTimeDate ?? RecordDate,
+                Note = Note,
+            };
+        await TimeKeeperService.AddAsync(entry);
+    }
+
+    private bool EvaluateDisableSave()
+    {
+        if (Note.Length == 0)
+        {
+            return true;
+        }
+        return false;
+    }
+}
