@@ -1,4 +1,7 @@
 @page "/"
+@using TimeKeeperApp.Services
+@using TimeKeeperApp.Models
+@inject TimeKeeperService TimeKeeperService
 
 <MudGrid>
     <MudItem xs="12" sm="4" md="4">
@@ -9,7 +12,7 @@
                 </CardHeaderContent>
             </MudCardHeader>
             <MudCardContent>
-                <MudDatePicker PickerVariant="PickerVariant.Static" Date="@RecordDate" />
+                <MudDatePicker PickerVariant="PickerVariant.Static" @bind-Date="@RecordDate" />
             </MudCardContent>
         </MudCard>
     </MudItem>
@@ -56,7 +59,7 @@
     <MudItem xs="12" sm="4" md="4">
         <MudCard class="mx-4 align-center">
             <MudCardContent>
-                <MudText Align="Align.Center" Typo="Typo.h5" class="">Total: @workhours h</MudText>
+                <MudText Align="Align.Center" Typo="Typo.h5" class="">Total: @_workhours h</MudText>
                 <MudTextField AutoGrow T="string" Typo="Typo.h6" class="d-flex w-full" @bind-Value="Note" Label="Notes"
                     HelperText="What have you worked on?" Variant="Variant.Outlined">
                 </MudTextField>
@@ -72,10 +75,7 @@
 </MudGrid>
 
 @code {
-    @using TimeKeeperApp.Services
-    @using TimeKeeperApp.Models
-    @inject TimeKeeperService TimeKeeperService
-    private double workhours = 0;
+    private double _workhours = 0;
 
     private TimeSpan? _startTime = new TimeSpan(08, 00, 00);
 
@@ -85,7 +85,7 @@
 
     private string Note = "";
 
-    private DateTime RecordDate { get; set; } = DateTime.Today;
+    private DateTime? RecordDate { get; set; } = DateTime.Today;
 
 
 
@@ -119,23 +119,10 @@
         }
     }
 
-    private DateTime? StartTimeDate
-    {
-        get => RecordDate.Add(StartTime ?? new TimeSpan(0, 0, 0));
-        set
-        {
-            _startTime = value - RecordDate;
-        }
-    }
+    private DateTime? StartTimeDate => RecordDate?.Add(StartTime ?? new TimeSpan(0, 0, 0));
 
-    private DateTime? EndTimeDate
-    {
-        get => RecordDate.Add(EndTime ?? new TimeSpan(0, 0, 0));
-        set
-        {
-            EndTime = value - RecordDate;
-        }
-    }
+    private DateTime? EndTimeDate => RecordDate?.Add(EndTime ?? new TimeSpan(0, 0, 0));
+
     protected override void OnInitialized()
     {
         CalculateElapsedTime();
@@ -149,8 +136,8 @@
             return;
         }
 
-        TimeSpan? elapsed = (EndTime - StartTime) - LunchTime;
-        workhours = elapsed?.TotalHours ?? 0;
+        var elapsed = (EndTime - StartTime) - LunchTime;
+        _workhours = elapsed?.TotalHours ?? 0;
     }
 
     private async void AddIntoTable()
@@ -159,10 +146,10 @@
             {
                 Id = Guid.NewGuid(),
                 CreatedAt = DateTime.UtcNow,
-                RecordDate = RecordDate,
-                StartTime = StartTimeDate ?? RecordDate,
+                RecordDate = RecordDate ?? DateTime.Today,
+                StartTime = StartTimeDate ?? RecordDate ?? DateTime.Today,
                 BreakTime = LunchTime?.TotalHours ?? 0,
-                EndTime = EndTimeDate ?? RecordDate,
+                EndTime = EndTimeDate ?? RecordDate ?? DateTime.Today,
                 Note = Note,
             };
         await TimeKeeperService.AddAsync(entry);
@@ -170,10 +157,6 @@
 
     private bool EvaluateDisableSave()
     {
-        if (Note.Length == 0)
-        {
-            return true;
-        }
-        return false;
+        return Note.Length == 0;
     }
 }

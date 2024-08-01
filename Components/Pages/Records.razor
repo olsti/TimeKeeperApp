@@ -1,13 +1,11 @@
 ﻿@page "/records"
-@using MudBlazor
 @using System.Globalization
 @using TimeKeeperApp.Models
-@using TimeKeeperApp.Services
-@inject TimeKeeperApp.Services.TimeKeeperService timeKeeperService
+@inject Services.TimeKeeperService TimeKeeperService
 @inject ISnackbar Snackbar
 
-<MudTable Items="@TimeRecords" Dense="true" Hover="true" ReadOnly="false" CanCancelEdit="true"
-    Filter="new Func<TimeRecord,bool>(FilterFunc)" @bind-SelectedItem="selectedRecord1" SortLabel="Sort By"
+<MudTable Items="@_timeRecords" Dense="true" Hover="true" ReadOnly="false" CanCancelEdit="true"
+    Filter="new Func<TimeRecord,bool>(FilterFunc)" @bind-SelectedItem="_selectedRecord1" SortLabel="Sort By"
     CommitEditTooltip="Commit Edit" OnCommitEditClick="@(() => Snackbar.Add("Commit Edit Handler Invoked"))"
     RowEditPreview="BackupItem" RowEditCancel="ResetItemToOriginalValues" RowEditCommit="ItemHasBeenCommitted"
     IsEditRowSwitchingBlocked="true" ApplyButtonPosition="TableApplyButtonPosition.End"
@@ -15,11 +13,11 @@
     <ToolBarContent>
         <MudText Typo="Typo.h6">TimeRecords</MudText>
         <MudSpacer />
-        <MudTextField @bind-Value="searchString" Placeholder="Search" Adornment="Adornment.Start"
+        <MudTextField @bind-Value="_searchString" Placeholder="Search" Adornment="Adornment.Start"
             AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0 mr-2">
         </MudTextField>
         <MudSpacer />
-        <MudSwitch class="mx-2" T="bool" @bind-Value="showInvalidated" LabelPosition="LabelPosition.Start">Show All
+        <MudSwitch class="mx-2" T="bool" @bind-Value="_showInvalidated" LabelPosition="LabelPosition.Start">Show All
         </MudSwitch>
     </ToolBarContent>
     <HeaderContent>
@@ -46,13 +44,13 @@
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="RecordDate">@Convert.ToDateTime(@context.RecordDate).ToString("dd/MM/yyyy")</MudTd>
-        <MudTd DataLabel="StartTime">@Convert.ToDateTime(@context.StartTime).ToString("HH:mm",
+        <MudTd DataLabel="StartTime">@context.StartTime.ToString("HH:mm",
             CultureInfo.InvariantCulture)</MudTd>
-        <MudTd DataLabel="EndTime">@Convert.ToDateTime(@context.EndTime).ToString("HH:mm",
+        <MudTd DataLabel="EndTime">@context.EndTime.ToString("HH:mm",
             CultureInfo.InvariantCulture)</MudTd>
-        <MudTd DataLabel="BreakTime">@context.BreakTime</MudTd>
+        <MudTd DataLabel="BreakTime">@Convert.ToDateTime(DateTime.Today+TimeSpan.FromHours(@context.BreakTime)).ToString("HH:mm", CultureInfo.InvariantCulture)</MudTd>
         <MudTd DataLabel="Note">@context.Note</MudTd>
-        <MudTd DataLabel="WorkTime">@context.WorkTime</MudTd>
+        <MudTd DataLabel="WorkTime">@Convert.ToDateTime(DateTime.Today+TimeSpan.FromHours(@context.WorkTime)).ToString("HH:mm", CultureInfo.InvariantCulture)</MudTd>
         <MudTd DataLabel="Invalidate">
             <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="delete"
                 OnClick="@((e)=> InvalidateRecord(@context.Id))">
@@ -87,37 +85,37 @@
     </EditButtonContent>
 </MudTable>
 
-<MudText HtmlTag="span">Selected1: @selectedRecord1?.CreatedAt</MudText>
+<MudText HtmlTag="span">Selected1: @_selectedRecord1?.CreatedAt</MudText>
 
 @code {
 
-    private List<string> editEvents = new();
-    private string searchString = "";
-    private bool showInvalidated = false;
-    private TimeRecord selectedRecord1;
-    private TimeRecord recordBeforeEdit;
+    private List<string> _editEvents = new();
+    private string _searchString = "";
+    private bool _showInvalidated = false;
+    private TimeRecord _selectedRecord1;
+    private TimeRecord _recordBeforeEdit;
     private HashSet<TimeRecord> selectedItems1 = new HashSet<TimeRecord>();
-    private IEnumerable<TimeRecord> TimeRecords = new List<TimeRecord>();
+    private IEnumerable<TimeRecord> _timeRecords = new List<TimeRecord>();
 
     protected override async Task OnInitializedAsync()
     {
-        TimeRecords = await timeKeeperService.GetTimeRecordsAsync();
+        _timeRecords = await TimeKeeperService.GetTimeRecordsAsync();
     }
 
     private void ClearEventLog()
     {
-        editEvents.Clear();
+        _editEvents.Clear();
     }
 
     private void AddEditionEvent(string message)
     {
-        editEvents.Add(message);
+        _editEvents.Add(message);
         StateHasChanged();
     }
 
     private void BackupItem(object record)
     {
-        recordBeforeEdit = new()
+        _recordBeforeEdit = new()
             {
                 StartTime = ((TimeRecord)record).StartTime,
                 EndTime = ((TimeRecord)record).EndTime,
@@ -134,28 +132,24 @@
 
     private void ResetItemToOriginalValues(object record)
     {
-        ((TimeRecord)record).StartTime = recordBeforeEdit.StartTime;
-        ((TimeRecord)record).EndTime = recordBeforeEdit.EndTime;
-        ((TimeRecord)record).BreakTime = recordBeforeEdit.BreakTime;
-        ((TimeRecord)record).Note = recordBeforeEdit.Note;
+        ((TimeRecord)record).StartTime = _recordBeforeEdit.StartTime;
+        ((TimeRecord)record).EndTime = _recordBeforeEdit.EndTime;
+        ((TimeRecord)record).BreakTime = _recordBeforeEdit.BreakTime;
+        ((TimeRecord)record).Note = _recordBeforeEdit.Note;
         AddEditionEvent($"RowEditCancel event: Editing of TimeRecord {((TimeRecord)record).CreatedAt} canceled");
     }
 
     private bool FilterFunc(TimeRecord record)
     {
-        if (!showInvalidated && !record.IsValid)
+        if (!_showInvalidated && !record.IsValid)
             return false;
-        if (string.IsNullOrWhiteSpace(searchString))
+        if (string.IsNullOrWhiteSpace(_searchString))
             return true;
-        if (record.Note.Contains(searchString, StringComparison.OrdinalIgnoreCase))
-            return true;
-        if ($"{record.StartTime} {record.BreakTime} {record.EndTime} {record.Note}".Contains(searchString))
-            return true;
-        return false;
+        return record.Note.Contains(_searchString, StringComparison.OrdinalIgnoreCase) || $"{record.StartTime} {record.BreakTime} {record.EndTime} {record.Note}".Contains(_searchString);
     }
 
     private async void InvalidateRecord(Guid recordId)
     {
-        await timeKeeperService.InvalidateRecordAsync(recordId);
+        await TimeKeeperService.InvalidateRecordAsync(recordId);
     }
 }

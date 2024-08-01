@@ -1,0 +1,135 @@
+﻿@page "/reports"
+@using TimeKeeperApp.Services
+@using TimeKeeperApp.Models
+@using System.Globalization
+@inject TimeKeeperService TimeKeeperService
+
+<MudGrid>
+    <MudItem xs="12" sm="12" md="12" lg="4">
+        <MudCard class="ma-4 align-center">
+            <MudCardContent>
+                <MudHidden Breakpoint="@Breakpoint.Xs">
+                    <MudDatePicker PickerVariant="PickerVariant.Static" @bind-Date="@SelectedDate" Orientation="Orientation.Landscape" ShowWeekNumbers="true"/>
+                </MudHidden>
+            </MudCardContent>
+            <MudCardActions Class="just-content-start ">
+                <MudButton Class="mr-8 ml-0" Size="Size.Large" Color="Color.Primary" OnClick="(e)=>SelectedDate = DateTime.Today">Today</MudButton>
+                <MudSpacer></MudSpacer>
+                <MudButton Size="Size.Large" Color="@_buttonDayColor" OnClick="(e) => SelectReportRange(e, ReportRange.Day)">Day</MudButton>
+                <MudButton Size="Size.Large" Color="@_buttonWeekColor" OnClick="(e) => SelectReportRange(e, ReportRange.Week)">Week</MudButton>
+                <MudButton Size="Size.Large" Color="@_buttonMonthColor" OnClick="(e) => SelectReportRange(e, ReportRange.Month)">Month</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="12" md="12" lg="8">
+        <MudTable class="ma-4" Items="@_timeRecords" Dense="false" Hover="true" ReadOnly="false"
+                  Filter="new Func<TimeRecord,bool>(FilterFunc)" SortLabel="Sort By" ServerData="DataReload" @ref="_table">
+            <ToolBarContent>
+                <MudText Typo="Typo.h6">TimeReports</MudText>
+                <MudSpacer />
+                <MudTextField @bind-Value="_searchString" Placeholder="Search" Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0 mr-2">
+                </MudTextField>
+                <MudSpacer />
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh>
+                    <MudTableSortLabel InitialDirection="SortDirection.Descending"
+                                       SortBy="new Func<TimeRecord, object>(x=>x.RecordDate)">
+                        RecordDate</MudTableSortLabel>
+                </MudTh>
+                <MudTh> Note
+                </MudTh>
+                <MudTh> WorkTime
+                </MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="RecordDate">@Convert.ToDateTime(@context.RecordDate).ToString("dd/MM/yyyy")</MudTd>
+                <MudTd DataLabel="Note">@context.Note</MudTd>
+                <MudTd DataLabel="WorkTime">@Convert.ToDateTime(DateTime.Today+TimeSpan.FromHours(@context.WorkTime)).ToString("HH:mm", CultureInfo.InvariantCulture)</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudItem>
+</MudGrid>
+
+@code {
+
+    private DateTime? _selectedDate = DateTime.Today;
+
+    public DateTime? SelectedDate
+    {
+        get => _selectedDate;
+        set
+        {
+            _selectedDate = value;
+            LoadReports(value);
+        }
+    }
+
+    private ReportRange _selectedReportRange = ReportRange.Day;
+    private string _searchString = "";
+    private IEnumerable<TimeRecord> _timeRecords = new List<TimeRecord>();
+    private int totalRepots = 0;
+    private MudTable<TimeRecord> _table = new();
+
+    Color _selectedButtonColor = Color.Success;
+    Color _buttonDayColor = Color.Success;
+    Color _buttonWeekColor = Color.Default;
+    Color _buttonMonthColor = Color.Default;
+    
+    protected override void OnAfterRender(bool firstRender)
+    {
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        //_timeRecords = await TimeKeeperService.GetTimeRecordsAsync(SelectedDate);
+    }
+    
+    private bool FilterFunc(TimeRecord record)
+    {
+        if (!record.IsValid)
+            return false;
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        return record.Note.Contains(_searchString, StringComparison.OrdinalIgnoreCase) || $"{record.StartTime} {record.BreakTime} {record.EndTime} {record.Note}".Contains(_searchString);
+    }
+
+    async void LoadReports(DateTime? reportDate)
+    {
+        await _table.ReloadServerData();
+    }
+    
+    void SelectReportRange(MouseEventArgs e, ReportRange selectedReportRange)
+    {
+        _buttonDayColor = Color.Default;
+        _buttonWeekColor = Color.Default;
+        _buttonMonthColor = Color.Default;
+        switch(selectedReportRange)
+        {
+            case ReportRange.Day:
+                _buttonDayColor = _selectedButtonColor;
+                break;
+            case ReportRange.Week:
+                _buttonWeekColor = _selectedButtonColor;
+                break;
+            case ReportRange.Month:
+                _buttonMonthColor = _selectedButtonColor;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(selectedReportRange), selectedReportRange, null);
+        }
+
+        _selectedReportRange = selectedReportRange;
+        LoadReports(SelectedDate);
+    }
+
+    private async Task<TableData<TimeRecord>> DataReload(TableState arg1, CancellationToken arg2)
+    {
+        var data =await TimeKeeperService.GetTimeRecordsAsync(SelectedDate, _selectedReportRange);
+        totalRepots = data.Count();
+        _timeRecords = data;
+        return new TableData<TimeRecord>() {TotalItems = totalRepots, Items = _timeRecords};
+    }
+
+}

@@ -4,13 +4,13 @@
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
-<MudThemeProvider Theme="MyCustomTheme" @bind-IsDarkMode="@isDarkMode" />
+<MudThemeProvider Theme="_myCustomTheme" @bind-IsDarkMode="@IsDarkMode" />
 <MudLayout>
     <MudAppBar Class="d-flex">
         <MudIconButton class="d-flex" Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
             OnClick="@((e) => DrawerToggle())" />
         <MudText Class="d-flex ml-auto" Typo="Typo.h4">TimeKeeper</MudText>
-        <MudToggleIconButton Class="d-flex ml-auto" @bind-Toggled="@isDarkMode"
+        <MudToggleIconButton Class="d-flex ml-auto" @bind-Toggled="@IsDarkMode"
             ToggledIcon="@Icons.Material.Filled.DarkMode" Icon="@Icons.Material.Filled.LightMode" />
     </MudAppBar>
     <MudDrawer @bind-Open="@_drawerOpen">
@@ -23,26 +23,26 @@
 
 @code {
     bool _drawerOpen = true;
-    private MudTheme MyCustomTheme = new MudTheme()
+    private MudTheme _myCustomTheme = new()
         {
-            PaletteLight = new PaletteLight()
+            PaletteLight = new PaletteLight
             {
                 Primary = Colors.Blue.Default,
                 Secondary = Colors.Green.Accent4,
                 AppbarBackground = Colors.Red.Default,
             },
-            PaletteDark = new PaletteDark()
+            PaletteDark = new PaletteDark
             {
                 Primary = Colors.Blue.Lighten1
             },
 
-            LayoutProperties = new LayoutProperties()
+            LayoutProperties = new LayoutProperties
             {
                 DrawerWidthLeft = "150px",
                 DrawerWidthRight = "300px"
             }
         };
-    private bool isDarkMode { get; set; } = true;
+    private bool IsDarkMode { get; set; } = true;
 
 
     void DrawerToggle()
